@@ -10,7 +10,6 @@
  * Config (Project Settings -> Script Properties):
  *   SUG_API_KEY          required
  *   CANTEEN_TITLE_PREFIX optional, default "Canteen Volunteer"
- *   CANTEEN_SIGNUP_ID    optional, numeric override
  */
 
 var DATA_PROPERTY_KEY = "VOLUNTEER_DATA_JSON";
@@ -25,7 +24,6 @@ function run() {
   }
 
   var titlePrefix = props.getProperty("CANTEEN_TITLE_PREFIX");
-  var signupIdOverride = Number(props.getProperty("CANTEEN_SIGNUP_ID")) || null;
 
   var signups;
   try {
@@ -37,7 +35,7 @@ function run() {
 
   var canteenResult;
   try {
-    canteenResult = buildCanteen(userKey, signups, titlePrefix, signupIdOverride);
+    canteenResult = buildCanteen(userKey, signups, titlePrefix);
   } catch (err) {
     Logger.log("Failed to build canteen section; aborting run. " + err.message);
     return;

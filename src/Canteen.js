@@ -2,19 +2,15 @@
 
 var DEFAULT_TITLE_PREFIX = "Canteen Volunteer";
 
-function resolveCanteenSignup(signups, titlePrefix, signupIdOverride) {
-  if (signupIdOverride) {
-    var byId = signups.filter(function (s) { return s.signupid === signupIdOverride; })[0];
-    return byId || null;
-  }
+function resolveCanteenSignup(signups, titlePrefix) {
   var prefix = titlePrefix || DEFAULT_TITLE_PREFIX;
   var byTitle = signups.filter(function (s) { return s.title.indexOf(prefix) === 0; })[0];
   return byTitle || null;
 }
 
 /** Returns { canteen, warnings, source }. Mirrors bps-volunteer-backend/src/canteen.ts. */
-function buildCanteen(userKey, signups, titlePrefix, signupIdOverride) {
-  var canteenSignup = resolveCanteenSignup(signups, titlePrefix, signupIdOverride);
+function buildCanteen(userKey, signups, titlePrefix) {
+  var canteenSignup = resolveCanteenSignup(signups, titlePrefix);
   if (!canteenSignup) {
     return {
       canteen: { signupId: null, title: null, signupUrl: null, days: [] },

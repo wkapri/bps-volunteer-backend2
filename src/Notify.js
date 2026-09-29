@@ -1,7 +1,7 @@
 /**
- * Canteen nightly summary — DESIGN.md section 8, built now instead of
- * deferred: MailApp is free under the Workspace, no SMTP/app-password setup.
- * Names + contact info (this job only — never in data.json/doGet()).
+ * Canteen nightly summary — DESIGN.md section 7. MailApp is free under the
+ * Workspace, no SMTP/app-password setup. Names + contact info (this job
+ * only — never in data.json/doGet()).
  *
  * Resolves the canteen sign-up the same automatic way as run() (title
  * prefix match against the active sign-ups list) — no manual signup ID.
@@ -23,15 +23,17 @@ function sendCanteenSummary() {
   var recipients = (props.getProperty("NOTIFY_EMAILS") || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
   var daysAhead = Number(props.getProperty("NOTIFY_DAYS_AHEAD")) || 7;
 
-  if (!userKey || recipients.length === 0) {
-    Logger.log("sendCanteenSummary: missing SUG_API_KEY or NOTIFY_EMAILS — aborting.");
-    return;
-  }
+  // Config errors — genuine misconfiguration, not a normal "nothing to send"
+  // state, so let these throw (marks the execution failed, feeds the native
+  // trigger failure-notification setting — see Code.js).
+  if (!userKey) throw new Error("SUG_API_KEY is not set.");
+  if (recipients.length === 0) throw new Error("NOTIFY_EMAILS is not set.");
 
   var signups = sugCreatedActive(userKey);
   var canteenSignup = resolveCanteenSignup(signups, titlePrefix);
   if (!canteenSignup) {
-    Logger.log("sendCanteenSummary: no active sign-up matches the canteen title prefix — aborting.");
+    // Legitimately normal between terms — not a failure, just nothing to send.
+    Logger.log("sendCanteenSummary: no active sign-up matches the canteen title prefix — skipping.");
     return;
   }
 

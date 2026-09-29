@@ -1,11 +1,14 @@
 /**
- * Entry point. Port of main.ts, minus ajv validation (no npm in Apps Script —
- * trust the same hand-written builders that produced the shape instead).
+ * Entry point.
  *
- * Durability (the whole reason for this migration): `run()` only overwrites
- * DATA_PROPERTY_KEY on full success. A broken trigger just stops updating it —
- * doGet() keeps serving the last good payload indefinitely, same rule as
- * DESIGN.md 4.3 ("never overwrite good data with a failed run").
+ * Durability: PropertiesService is only ever written on the last line below,
+ * after every fetch has already succeeded. Errors are NOT caught here — they
+ * propagate and abort the run before that line, so a failure simply leaves
+ * the previously-stored good data untouched (doGet() keeps serving it,
+ * unaware anything went wrong). Letting the exception reach Apps Script also
+ * marks the execution as failed in the Executions log and (once the trigger's
+ * failure-notification setting is turned on, in Triggers → ⋮ → this trigger)
+ * emails you automatically — no hand-rolled alerting needed for this path.
  *
  * Config (Project Settings -> Script Properties):
  *   SUG_API_KEY          required
@@ -18,29 +21,12 @@ var SCHEMA_VERSION = 1;
 function run() {
   var props = PropertiesService.getScriptProperties();
   var userKey = props.getProperty("SUG_API_KEY");
-  if (!userKey) {
-    Logger.log("SUG_API_KEY is not set — aborting run.");
-    return;
-  }
+  if (!userKey) throw new Error("SUG_API_KEY is not set.");
 
   var titlePrefix = props.getProperty("CANTEEN_TITLE_PREFIX");
 
-  var signups;
-  try {
-    signups = sugCreatedActive(userKey);
-  } catch (err) {
-    Logger.log("Failed to list active sign-ups; aborting run. " + err.message);
-    return;
-  }
-
-  var canteenResult;
-  try {
-    canteenResult = buildCanteen(userKey, signups, titlePrefix);
-  } catch (err) {
-    Logger.log("Failed to build canteen section; aborting run. " + err.message);
-    return;
-  }
-
+  var signups = sugCreatedActive(userKey);
+  var canteenResult = buildCanteen(userKey, signups, titlePrefix);
   var eventsResult = buildEvents(userKey, signups, canteenResult.canteen.signupId);
   var warnings = canteenResult.warnings.concat(eventsResult.warnings);
 
@@ -61,12 +47,8 @@ function run() {
   // ponytail: single ScriptProperties value, 9KB cap. Fine at current data
   // volume (canteen term + a handful of events); if it ever grows past that,
   // split across a few numbered properties and reassemble in doGet().
-  try {
-    props.setProperty(DATA_PROPERTY_KEY, json);
-    Logger.log("Wrote data — canteen days: " + data.canteen.days.length + ", events: " + data.events.length + ", warnings: " + warnings.length);
-  } catch (err) {
-    Logger.log("Failed to store data (" + err.message + ") — leaving previous good data in place.");
-  }
+  props.setProperty(DATA_PROPERTY_KEY, json);
+  Logger.log("Wrote data — canteen days: " + data.canteen.days.length + ", events: " + data.events.length + ", warnings: " + warnings.length);
 }
 
 function doGet(e) {

@@ -32,7 +32,7 @@ function buildEvents(userKey, signups, canteenSignupId) {
       capacity: totals.capacity,
       filled: totals.filled,
       fillPct: pct === null ? 0 : pct,
-      capacityNote: "Naive sum of slot quantities — may include non-volunteer slots (see DESIGN.md section 10).",
+      capacityNote: "Naive sum of slot quantities — may include non-volunteer slots (see DESIGN.md section 9).",
     });
   });
 

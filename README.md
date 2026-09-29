@@ -1,11 +1,9 @@
 # bps-volunteer-backend2
 
 Fetches canteen + event data from SignUpGenius on a Google Apps Script time
-trigger and serves it as JSON via a web app — replaces a GitHub Actions
-hourly cron (unreliable: scheduled-workflow delays/skips), hosted free under
-the school's Google Workspace. See `bps-volunteer-ui/DESIGN.md` for the
-overall design and `data.json` contract; this repo only changes *where* it's
-computed and served, not the shape.
+trigger and serves it as JSON via a web app, hosted under the P&C's Google
+Workspace. See `bps-volunteer-ui/DESIGN.md` for the overall design and
+`data.json` contract.
 
 ## Files (`src/`, pushed via clasp)
 
@@ -16,9 +14,7 @@ computed and served, not the shape.
 - `Notify.js` — nightly canteen volunteer summary email (names + contact info, `sendCanteenSummary`, `setupNotifyTrigger`). Not installed by default — run `setupNotifyTrigger` once if you want it automated.
 - `Utils.js` — count coercion, status thresholds, date math (no Luxon; "noon UTC" trick for calendar-day arithmetic, `Utilities.formatDate` for anything timezone-real).
 
-No ajv/schema validation — no npm in Apps Script. Trust the hand-written builders instead.
-
-Canteen and event sign-ups are both resolved automatically every run — the canteen one by title prefix (`CANTEEN_TITLE_PREFIX`, default `"Canteen Volunteer"`) against the live active sign-ups list, everything else treated as an event. No manual sign-up IDs anywhere; a new term's canteen sign-up or a new event is picked up on the next hourly run with zero config changes.
+Canteen and event sign-ups are both resolved automatically every run — the canteen one by title prefix (`CANTEEN_TITLE_PREFIX`, default `"Canteen Volunteer"`) against the live active sign-ups list, everything else treated as an event. A new term's canteen sign-up or a new event is picked up on the next hourly run with zero config changes.
 
 ## Durability
 

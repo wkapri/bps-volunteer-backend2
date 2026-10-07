@@ -13,6 +13,7 @@
  * Config (Project Settings -> Script Properties):
  *   SUG_API_KEY          required
  *   CANTEEN_TITLE_PREFIX optional, default "Canteen Volunteer"
+ *   CANTEEN_DAYS_AHEAD   optional, default 14 — calendar days of canteen shown on the dashboard
  */
 
 var DATA_PROPERTY_KEY = "VOLUNTEER_DATA_JSON";
@@ -24,10 +25,11 @@ function run() {
   if (!userKey) throw new Error("SUG_API_KEY is not set.");
 
   var titlePrefix = props.getProperty("CANTEEN_TITLE_PREFIX");
+  var daysAhead = Number(props.getProperty("CANTEEN_DAYS_AHEAD")) || 14;
 
   var signups = sugCreatedActive(userKey);
-  var canteenResult = buildCanteen(userKey, signups, titlePrefix);
-  var eventsResult = buildEvents(userKey, signups, canteenResult.canteen.signupId);
+  var canteenResult = buildCanteen(userKey, signups, titlePrefix, daysAhead);
+  var eventsResult = buildEvents(userKey, signups, titlePrefix);
   var warnings = canteenResult.warnings.concat(eventsResult.warnings);
 
   var data = {

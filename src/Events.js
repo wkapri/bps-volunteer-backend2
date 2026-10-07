@@ -1,8 +1,9 @@
 /** Port of events.ts. */
 
-function buildEvents(userKey, signups, canteenSignupId) {
+function buildEvents(userKey, signups, titlePrefix) {
   var today = sydneyTodayIso();
-  var candidates = signups.filter(function (s) { return s.signupid !== canteenSignupId; });
+  // Every canteen-titled sign-up is excluded, so an early-created next term never shows up as an event.
+  var candidates = signups.filter(function (s) { return !isCanteenSignup(s, titlePrefix); });
 
   var events = [];
   var warnings = [];

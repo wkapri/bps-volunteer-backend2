@@ -14,7 +14,7 @@ Workspace. See `bps-volunteer-ui/DESIGN.md` for the overall design and
 - `Notify.js` — nightly canteen volunteer summary email (names + contact info, `sendCanteenSummary`, `setupNotifyTrigger`). Not installed by default — run `setupNotifyTrigger` once if you want it automated.
 - `Utils.js` — count coercion, status thresholds, date math (no Luxon; "noon UTC" trick for calendar-day arithmetic, `Utilities.formatDate` for anything timezone-real).
 
-Canteen and event sign-ups are both resolved automatically every run — the canteen one by title prefix (`CANTEEN_TITLE_PREFIX`, default `"Canteen Volunteer"`) against the live active sign-ups list, everything else treated as an event. A new term's canteen sign-up or a new event is picked up on the next hourly run with zero config changes.
+Canteen and event sign-ups are both resolved automatically every run — the canteen one by title prefix (`CANTEEN_TITLE_PREFIX`, default `"Canteen Volunteer"`) against the live active sign-ups list, everything else treated as an event. A new term's canteen sign-up or a new event is picked up on the next hourly run with zero config changes. If several sign-ups match the prefix (next term created early), the current one is used — earliest start among those not yet finished — and the others are hidden from the events list until their turn.
 
 ## Durability
 
@@ -27,6 +27,7 @@ Canteen and event sign-ups are both resolved automatically every run — the can
 3. In the Apps Script editor — Project Settings → Script Properties:
    - `SUG_API_KEY` (required)
    - `CANTEEN_TITLE_PREFIX` (optional, default `"Canteen Volunteer"`)
+   - `CANTEEN_DAYS_AHEAD` (optional, default 14) — calendar days of canteen shown on the dashboard (about 10 weekdays)
    - `NOTIFY_EMAILS` (comma-separated, for `sendCanteenSummary`)
    - `NOTIFY_DAYS_AHEAD` (optional, default 7)
 4. Run `setupTrigger` once manually from the editor (installs the hourly trigger).

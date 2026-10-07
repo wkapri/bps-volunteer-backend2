@@ -2,14 +2,29 @@
 
 var DEFAULT_TITLE_PREFIX = "Canteen Volunteer";
 
-function resolveCanteenSignup(signups, titlePrefix) {
-  var prefix = titlePrefix || DEFAULT_TITLE_PREFIX;
-  var byTitle = signups.filter(function (s) { return s.title.indexOf(prefix) === 0; })[0];
-  return byTitle || null;
+function isCanteenSignup(s, titlePrefix) {
+  return s.title.indexOf(titlePrefix || DEFAULT_TITLE_PREFIX) === 0;
 }
 
-/** Returns { canteen, warnings, source }. Mirrors bps-volunteer-backend/src/canteen.ts. */
-function buildCanteen(userKey, signups, titlePrefix) {
+/**
+ * With several matching sign-ups (next term created early), pick the current
+ * one: earliest start among those not yet finished. SignUpGenius returns them
+ * in no particular order, so don't rely on list position. Once the current
+ * term's last slot passes, the next one takes over on the following run.
+ */
+function resolveCanteenSignup(signups, titlePrefix) {
+  var matches = signups.filter(function (s) { return isCanteenSignup(s, titlePrefix); });
+  if (matches.length === 0) return null;
+
+  var nowSec = Date.now() / 1000;
+  var unfinished = matches.filter(function (s) { return !s.enddate || s.enddate >= nowSec; });
+  var pool = unfinished.length > 0 ? unfinished : matches;
+  pool.sort(function (a, b) { return a.startdate - b.startdate; });
+  return pool[0];
+}
+
+/** Returns { canteen, warnings, source }. daysAhead caps how far past today days are emitted. */
+function buildCanteen(userKey, signups, titlePrefix, daysAhead) {
   var canteenSignup = resolveCanteenSignup(signups, titlePrefix);
   if (!canteenSignup) {
     return {
@@ -26,7 +41,7 @@ function buildCanteen(userKey, signups, titlePrefix) {
     try {
       var publicSlots = fetchCanteenSlots(urlKey);
       if (Object.keys(publicSlots).length > 0) {
-        return { canteen: buildFromPublicSlots(canteenSignup, publicSlots), warnings: warnings, source: "public-sheet" };
+        return { canteen: buildFromPublicSlots(canteenSignup, publicSlots, daysAhead), warnings: warnings, source: "public-sheet" };
       }
       warnings.push("canteen: public sheet endpoint returned no date-slots; falling back to key API (no deep links)");
     } catch (err) {
@@ -36,10 +51,10 @@ function buildCanteen(userKey, signups, titlePrefix) {
     warnings.push('canteen: could not parse urlid from signupUrl "' + canteenSignup.signupurl + '"; falling back to key API (no deep links)');
   }
 
-  return { canteen: buildFromReportAll(userKey, canteenSignup), warnings: warnings, source: "key-api" };
+  return { canteen: buildFromReportAll(userKey, canteenSignup, daysAhead), warnings: warnings, source: "key-api" };
 }
 
-function buildFromPublicSlots(canteenSignup, publicSlots) {
+function buildFromPublicSlots(canteenSignup, publicSlots, daysAhead) {
   var dateKeys = Object.keys(publicSlots);
   var lastDate = dateKeys.reduce(function (max, k) { return k > max ? k : max; });
 
@@ -48,12 +63,12 @@ function buildFromPublicSlots(canteenSignup, publicSlots) {
     if (!slot) return { date: dateKey, weekday: weekday, status: "closed" };
     var deepLink = canteenSignup.signupurl + "#/#" + slot.slotid + "-date-wrap";
     return summarizeDay(dateKey, weekday, slot.shifts, deepLink);
-  });
+  }, daysAhead);
 
   return { signupId: canteenSignup.signupid, title: canteenSignup.title, signupUrl: canteenSignup.signupurl, days: days };
 }
 
-function buildFromReportAll(userKey, canteenSignup) {
+function buildFromReportAll(userKey, canteenSignup, daysAhead) {
   var rows = sugReportAll(userKey, canteenSignup.signupid);
 
   var byDate = {}; // dateKey -> { label -> {capacity, filled} }
@@ -82,14 +97,16 @@ function buildFromReportAll(userKey, canteenSignup) {
       return { label: label, capacity: shifts[label].capacity, filled: shifts[label].filled };
     });
     return summarizeDay(dateKey, weekday, shiftList, canteenSignup.signupurl);
-  });
+  }, daysAhead);
 
   return { signupId: canteenSignup.signupid, title: canteenSignup.title, signupUrl: canteenSignup.signupurl, days: days };
 }
 
-/** Weekdays only, from "today" (3pm Sydney rollover) through lastDate. */
-function buildDayRange(lastDateIso, dayBuilder) {
+/** Weekdays only, from "today" (3pm Sydney rollover) through the earlier of lastDate and today + daysAhead calendar days. */
+function buildDayRange(lastDateIso, dayBuilder, daysAhead) {
   var lastDate = isoDateToNoonUtc(lastDateIso);
+  var limit = addDaysUtc(isoDateToNoonUtc(sydneyTodayIso()), daysAhead);
+  if (limit.getTime() < lastDate.getTime()) lastDate = limit;
   var cursor = sydneyDayCursor();
 
   var days = [];

@@ -56,7 +56,8 @@ function fetchTotals(userKey, s, warnings) {
       // Empty response isn't an error, but there's nothing to compute from —
       // fall through to the key API rather than emitting a fake 0/0 event.
     } catch (e) {
-      // fall through to key API
+      // Fall through to the key API, but leave a trace — the public endpoint is undocumented and may change.
+      console.error("event " + s.signupid + ": public endpoint failed (" + e.message + "), using key API");
     }
   }
 
@@ -71,7 +72,9 @@ function fetchTotals(userKey, s, warnings) {
     });
     return { capacity: capacity, filled: filled };
   } catch (err) {
-    warnings.push("event " + s.signupid + " (" + s.title + "): " + err.message);
+    var msg = "event " + s.signupid + " (" + s.title + "): " + err.message;
+    console.error(msg);
+    warnings.push(msg);
     return null;
   }
 }

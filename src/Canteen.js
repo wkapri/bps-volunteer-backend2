@@ -35,23 +35,30 @@ function buildCanteen(userKey, signups, titlePrefix, daysAhead) {
   }
 
   var warnings = [];
+  var endpointError = null; // set when the public endpoint threw — run() turns this into a real failure
   var urlKey = urlKeyFromSignupUrl(canteenSignup.signupurl);
 
   if (urlKey) {
+    var publicSlots = null;
     try {
-      var publicSlots = fetchCanteenSlots(urlKey);
-      if (Object.keys(publicSlots).length > 0) {
-        return { canteen: buildFromPublicSlots(canteenSignup, publicSlots, daysAhead), warnings: warnings, source: "public-sheet" };
-      }
-      warnings.push("canteen: public sheet endpoint returned no date-slots; falling back to key API (no deep links)");
+      publicSlots = fetchCanteenSlots(urlKey);
     } catch (err) {
+      // Only the network call is guarded; a bug in our own code below must not be masked as an endpoint failure.
+      endpointError = err.message;
+      console.error("canteen: public sheet endpoint failed (" + err.message + ")");
       warnings.push("canteen: public sheet endpoint failed (" + err.message + "); falling back to key API (no deep links)");
+    }
+    if (publicSlots && Object.keys(publicSlots).length > 0) {
+      return { canteen: buildFromPublicSlots(canteenSignup, publicSlots, daysAhead), warnings: warnings, source: "public-sheet" };
+    }
+    if (!endpointError) {
+      warnings.push("canteen: public sheet endpoint returned no date-slots; falling back to key API (no deep links)");
     }
   } else {
     warnings.push('canteen: could not parse urlid from signupUrl "' + canteenSignup.signupurl + '"; falling back to key API (no deep links)');
   }
 
-  return { canteen: buildFromReportAll(userKey, canteenSignup, daysAhead), warnings: warnings, source: "key-api" };
+  return { canteen: buildFromReportAll(userKey, canteenSignup, daysAhead), warnings: warnings, source: "key-api", endpointError: endpointError };
 }
 
 function buildFromPublicSlots(canteenSignup, publicSlots, daysAhead) {

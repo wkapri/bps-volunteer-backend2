@@ -9,6 +9,9 @@
  * marks the execution as failed in the Executions log and (once the trigger's
  * failure-notification setting is turned on, in Triggers → ⋮ → this trigger)
  * emails you automatically — no hand-rolled alerting needed for this path.
+ * Partial failures (an event skipped, or the canteen public endpoint failing
+ * and falling back) publish the good data first, then throw at the very end,
+ * so they are reported as failures too and nothing degrades silently.
  *
  * Config (Project Settings -> Script Properties):
  *   SUG_API_KEY          required
@@ -51,6 +54,13 @@ function run() {
   // split across a few numbered properties and reassemble in doGet().
   props.setProperty(DATA_PROPERTY_KEY, json);
   Logger.log("Wrote data — canteen days: " + data.canteen.days.length + ", events: " + data.events.length + ", warnings: " + warnings.length);
+
+  // Partial failures: the good data above is already published, but don't let the run look clean —
+  // throwing marks it Failed in Executions and fires the trigger's failure notification.
+  var problems = [];
+  if (canteenResult.endpointError) problems.push("canteen public endpoint failed (" + canteenResult.endpointError + "), fell back to key API");
+  if (eventsResult.failureCount > 0) problems.push(eventsResult.failureCount + " event(s) skipped: " + eventsResult.warnings.join("; "));
+  if (problems.length > 0) throw new Error("Published with problems — " + problems.join(" | "));
 }
 
 function doGet(e) {

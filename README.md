@@ -11,7 +11,7 @@ Workspace. See `bps-volunteer-ui/DESIGN.md` for the overall design and
 - `SugClient.js` — key-based SignUpGenius API (`/signups/created/active/`, `/signups/report/all/{id}/`).
 - `PublicSignupApi.js` — keyless public sign-up sheet endpoint (preferred source for counts — no names).
 - `Canteen.js` / `Events.js` — canteen day-range + status logic, event list building.
-- `Notify.js` — nightly canteen volunteer summary email (names + contact info, `sendCanteenSummary`, `setupNotifyTrigger`). Not installed by default — run `setupNotifyTrigger` once if you want it automated.
+- `Notify.js` — nightly canteen volunteer summary email (names + contact info, `sendCanteenSummary`, `setupNotifyTrigger`). Covers tomorrow through `NOTIFY_DAYS_AHEAD` days out; every shift with a slot is listed, empty ones say "no volunteers". No email on Friday/Saturday nights or when there are no slots in the window. Not installed by default — run `setupNotifyTrigger` once if you want it automated.
 - `Utils.js` — count coercion, status thresholds, date math (no Luxon; "noon UTC" trick for calendar-day arithmetic, `Utilities.formatDate` for anything timezone-real).
 
 Canteen and event sign-ups are both resolved automatically every run — the canteen one by title prefix (`CANTEEN_TITLE_PREFIX`, default `"Canteen Volunteer"`) against the live active sign-ups list, everything else treated as an event. A new term's canteen sign-up or a new event is picked up on the next hourly run with zero config changes. If several sign-ups match the prefix (next term created early), the current one is used — earliest start among those not yet finished — and the others are hidden from the events list until their turn.

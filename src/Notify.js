@@ -3,6 +3,11 @@
  * Workspace, no SMTP/app-password setup. Names + contact info (this job
  * only — never in data.json/doGet()).
  *
+ * Covers tomorrow through today + NOTIFY_DAYS_AHEAD (the email goes out ~9pm,
+ * so today is already done). Every shift with a slot is listed; a shift with
+ * nobody signed up says "no volunteers". No slots in the window, or a
+ * Friday/Saturday night: no email.
+ *
  * Resolves the canteen sign-up the same automatic way as run() (title
  * prefix match against the active sign-ups list) — no manual signup ID.
  * Costs 2 API calls per invocation (createdActive + reportAll); not worth
@@ -29,6 +34,14 @@ function sendCanteenSummary() {
   if (!userKey) throw new Error("SUG_API_KEY is not set.");
   if (recipients.length === 0) throw new Error("NOTIFY_EMAILS is not set.");
 
+  // Fri/Sat nights: no email (the next day is Sat/Sun, no canteen).
+  var todayIso = sydneyTodayIso();
+  var weekdayToday = isoDateToNoonUtc(todayIso).getUTCDay(); // 0 = Sun ... 5 = Fri, 6 = Sat
+  if (weekdayToday === 5 || weekdayToday === 6) {
+    Logger.log("sendCanteenSummary: Friday/Saturday night — skipping.");
+    return;
+  }
+
   var signups = sugCreatedActive(userKey);
   var canteenSignup = resolveCanteenSignup(signups, titlePrefix);
   if (!canteenSignup) {
@@ -38,18 +51,20 @@ function sendCanteenSummary() {
   }
 
   var rows = sugReportAll(userKey, canteenSignup.signupid);
-  var todayIso = sydneyTodayIso();
+  // Window starts tomorrow: the 9pm email is for what's coming, today is already done.
+  var tomorrowIso = noonUtcToIso(addDaysUtc(isoDateToNoonUtc(todayIso), 1));
   var cutoffIso = noonUtcToIso(addDaysUtc(isoDateToNoonUtc(todayIso), daysAhead));
 
-  // date -> item -> [{name, phone, email, qty, comment}]
+  // date -> shift -> [{name, phone, email, qty, comment}]. Every slot in the window gets an
+  // entry (even with nobody signed up) so empty shifts are reported, not silently dropped.
   var byDate = {};
   rows.forEach(function (row) {
-    if (!row.firstname) return; // unfilled slot instance, not a real signup
     var dateKey = epochSecondsToSydneyIso(row.startdate);
-    if (dateKey < todayIso || dateKey > cutoffIso) return;
+    if (dateKey < tomorrowIso || dateKey > cutoffIso) return;
 
     var items = byDate[dateKey] || (byDate[dateKey] = {});
     var list = items[row.item] || (items[row.item] = []);
+    if (!row.firstname) return; // unfilled slot instance: the shift exists, nobody in it
     list.push({
       name: row.firstname + " " + row.lastname,
       phone: row.phone,
@@ -61,17 +76,18 @@ function sendCanteenSummary() {
 
   var dateKeys = Object.keys(byDate).sort();
   if (dateKeys.length === 0) {
-    Logger.log("sendCanteenSummary: no signups in the next " + daysAhead + " days — not sending.");
+    Logger.log("sendCanteenSummary: no canteen slots from tomorrow through " + cutoffIso + " — not sending.");
     return;
   }
 
-  var lines = ["Canteen volunteers, next " + daysAhead + " days:", ""];
+  var lines = ["Canteen volunteers, " + tomorrowIso + " to " + cutoffIso + ":", ""];
   dateKeys.forEach(function (dateKey) {
     var d = isoDateToNoonUtc(dateKey);
     lines.push(weekdayName(d) + " " + dateKey);
     var items = byDate[dateKey];
     Object.keys(items).sort().forEach(function (item) {
       lines.push("  " + item + ":");
+      if (items[item].length === 0) lines.push("    - no volunteers -");
       items[item].forEach(function (p) {
         var contact = [p.phone, p.email].filter(Boolean).join(", ");
         var qtyNote = p.qty > 1 ? " (x" + p.qty + ")" : "";

@@ -28,8 +28,9 @@ function buildEvents(userKey, signups, titlePrefix) {
       id: s.signupid,
       title: s.title,
       date: eventDate,
+      dates: totals.dates && totals.dates.length > 1 ? totals.dates : undefined, // only multi-date sign-ups carry the list
       description: null,
-      imageUrl: s.mainimage || s.thumbnail || null,
+      imageUrl: usableImageUrl(s.mainimage) || usableImageUrl(s.thumbnail) || null,
       signupUrl: s.signupurl,
       status: status,
       capacity: totals.capacity,
@@ -46,6 +47,11 @@ function buildEvents(userKey, signups, titlePrefix) {
   events.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
 
   return { events: events, warnings: warnings, fetchedCount: candidates.length, failureCount: failureCount };
+}
+
+/** SignUpGenius sometimes returns just the folder ("…/images/theme/") when no image is set — not a real image. */
+function usableImageUrl(url) {
+  return url && url.slice(-1) !== "/" ? url : null;
 }
 
 /** Public endpoint first; key API fallback; only warns + returns null if both fail. */
@@ -68,18 +74,19 @@ function fetchTotals(userKey, s, warnings) {
     var today = sydneyTodayIso();
     var capacity = 0;
     var filled = 0;
-    var nextDate = null;
+    var dates = [];
     rows.forEach(function (row) {
       if (row.startdate) {
         var date = epochSecondsToSydneyIso(row.startdate);
         if (date < today) return; // past slot of a multi-day sign-up
-        if (!nextDate || date < nextDate) nextDate = date;
+        dates.push(date);
       }
       var qty = toCount(row.myqty);
       capacity += qty;
       if (row.firstname) filled += qty;
     });
-    return { capacity: capacity, filled: filled, nextDate: nextDate };
+    dates = uniqueSorted(dates);
+    return { capacity: capacity, filled: filled, nextDate: dates[0] || null, dates: dates };
   } catch (err) {
     var msg = "event " + s.signupid + " (" + s.title + "): " + err.message;
     console.error(msg);

@@ -28,6 +28,11 @@ function statusFromPct(pct) {
   return "green";
 }
 
+/** Distinct values, ascending (ISO dates sort correctly as strings). */
+function uniqueSorted(list) {
+  return list.filter(function (v, i) { return list.indexOf(v) === i; }).sort();
+}
+
 function isoDateToNoonUtc(iso) {
   var parts = iso.split("-").map(Number);
   return new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 12, 0, 0));

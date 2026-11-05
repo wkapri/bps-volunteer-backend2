@@ -47,10 +47,11 @@ function fetchCanteenSlots(urlKey) {
 }
 
 /**
- * Summed capacity/filled across the sign-up's UPCOMING slots, plus nextDate
- * (earliest upcoming slot date, null if none are dated). A multi-day sign-up
- * keeps counting only what's still ahead as its first slots pass. Returns
- * null (not an error) when legitimately empty; throws on network/HTTP failure.
+ * Summed capacity/filled across the sign-up's UPCOMING slots, plus dates
+ * (their distinct dates, soonest first) and nextDate (dates[0], null if none
+ * are dated). A multi-day sign-up keeps counting only what's still ahead as
+ * its first slots pass. Returns null (not an error) when legitimately empty;
+ * throws on network/HTTP failure.
  */
 function fetchSignupTotals(urlKey) {
   var rawSlots = fetchRawSlots(urlKey);
@@ -58,7 +59,7 @@ function fetchSignupTotals(urlKey) {
   var anySlot = false;
   var capacity = 0;
   var filled = 0;
-  var nextDate = null;
+  var dates = [];
 
   for (var key in rawSlots) {
     var slot = rawSlots[key];
@@ -67,7 +68,7 @@ function fetchSignupTotals(urlKey) {
 
     var date = parseSugPublicDate(slot.starttime);
     if (date && date < today) continue; // past slot of a multi-day sign-up
-    if (date && (!nextDate || date < nextDate)) nextDate = date;
+    if (date) dates.push(date);
 
     slot.items.forEach(function (item) {
       capacity += toCount(item.qty);
@@ -76,5 +77,6 @@ function fetchSignupTotals(urlKey) {
   }
 
   if (!anySlot) return null;
-  return { capacity: capacity, filled: filled, nextDate: nextDate };
+  dates = uniqueSorted(dates);
+  return { capacity: capacity, filled: filled, nextDate: dates[0] || null, dates: dates };
 }

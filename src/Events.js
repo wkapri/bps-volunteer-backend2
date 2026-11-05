@@ -10,14 +10,16 @@ function buildEvents(userKey, signups, titlePrefix) {
   var failureCount = 0;
 
   candidates.forEach(function (s) {
-    var eventDate = epochSecondsToSydneyIso(s.startdate);
-    if (eventDate < today) return; // dropped: past Sydney midnight after the event date
-
     var totals = fetchTotals(userKey, s, warnings);
     if (!totals) {
       failureCount += 1;
       return;
     }
+
+    // A multi-day sign-up stays listed until its last slot passes, dated by its next upcoming
+    // slot; startdate (the first slot) is only the fallback when no slot dates are known.
+    var eventDate = totals.nextDate || epochSecondsToSydneyIso(s.startdate);
+    if (eventDate < today) return; // dropped: past Sydney midnight after the event date
 
     var pct = fillPct(totals.filled, totals.capacity);
     var status = pct === null ? "red" : statusFromPct(pct);
@@ -63,14 +65,21 @@ function fetchTotals(userKey, s, warnings) {
 
   try {
     var rows = sugReportAll(userKey, s.signupid);
+    var today = sydneyTodayIso();
     var capacity = 0;
     var filled = 0;
+    var nextDate = null;
     rows.forEach(function (row) {
+      if (row.startdate) {
+        var date = epochSecondsToSydneyIso(row.startdate);
+        if (date < today) return; // past slot of a multi-day sign-up
+        if (!nextDate || date < nextDate) nextDate = date;
+      }
       var qty = toCount(row.myqty);
       capacity += qty;
       if (row.firstname) filled += qty;
     });
-    return { capacity: capacity, filled: filled };
+    return { capacity: capacity, filled: filled, nextDate: nextDate };
   } catch (err) {
     var msg = "event " + s.signupid + " (" + s.title + "): " + err.message;
     console.error(msg);

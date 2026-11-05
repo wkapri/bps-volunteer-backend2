@@ -47,23 +47,34 @@ function fetchCanteenSlots(urlKey) {
 }
 
 /**
- * Summed capacity/filled across every slot/item — one-off events only need
- * one event-level total (v1: one event = one date). Returns null (not an
- * error) when legitimately empty; throws on network/HTTP failure.
+ * Summed capacity/filled across the sign-up's UPCOMING slots, plus nextDate
+ * (earliest upcoming slot date, null if none are dated). A multi-day sign-up
+ * keeps counting only what's still ahead as its first slots pass. Returns
+ * null (not an error) when legitimately empty; throws on network/HTTP failure.
  */
 function fetchSignupTotals(urlKey) {
   var rawSlots = fetchRawSlots(urlKey);
-  var allItems = [];
-  for (var key in rawSlots) {
-    allItems = allItems.concat(rawSlots[key].items);
-  }
-  if (allItems.length === 0) return null;
-
+  var today = sydneyTodayIso();
+  var anySlot = false;
   var capacity = 0;
   var filled = 0;
-  allItems.forEach(function (item) {
-    capacity += toCount(item.qty);
-    filled += toCount(item.qtyTaken);
-  });
-  return { capacity: capacity, filled: filled };
+  var nextDate = null;
+
+  for (var key in rawSlots) {
+    var slot = rawSlots[key];
+    if (slot.items.length === 0) continue;
+    anySlot = true;
+
+    var date = parseSugPublicDate(slot.starttime);
+    if (date && date < today) continue; // past slot of a multi-day sign-up
+    if (date && (!nextDate || date < nextDate)) nextDate = date;
+
+    slot.items.forEach(function (item) {
+      capacity += toCount(item.qty);
+      filled += toCount(item.qtyTaken);
+    });
+  }
+
+  if (!anySlot) return null;
+  return { capacity: capacity, filled: filled, nextDate: nextDate };
 }

@@ -30,7 +30,7 @@ function buildEvents(userKey, signups, titlePrefix) {
       date: eventDate,
       dates: totals.dates && totals.dates.length > 1 ? totals.dates : undefined, // only multi-date sign-ups carry the list
       description: null,
-      imageUrl: usableImageUrl(s.mainimage) || usableImageUrl(s.thumbnail) || null,
+      imageUrl: usableImageUrl(s.mainimage), // not s.thumbnail: those are ~125px wide, blurry at card size
       signupUrl: s.signupurl,
       status: status,
       capacity: totals.capacity,
